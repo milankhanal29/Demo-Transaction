@@ -1,0 +1,88 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider files
+.idea/
+*.sln.iml
+
+# VSCode
+.vscode/
+.history/
+
+# ASP.NET Core secrets
+secrets.json
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+Logs/
+
+# NUnit test results
+TestResult.xml
+TestResults/
+
+# dotCover
+*.dcvr
+
+# Coverage
+coverage/
+*.lcov
+
+# Publish folder
+publish/
+
+# Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# TernJS
+.tern-port
+
+# NPM packages (if front-end is embedded)
+node_modules/
+
+# LibMan
+wwwroot/lib/
+
+# Temporary files
+*.tmp
+*.bak
+*.old
+
+# Mac/Linux/Windows OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Entity Framework Core Migrations snapshots
+**/Migrations/*Snapshot.cs
+
+# JetBrains Rider debugger
+.idea/
+
+# dotnet user secrets
+**/appsettings.Development.json
+**/appsettings.*.json
+
+# Optional: Ignore Docker artifacts
+docker-compose.override.yml
+.dockerignore
+Dockerfile
+
+# Optional: ignore SQLite db
+*.db
+*.sqlite
