@@ -8,7 +8,7 @@ namespace TransactionService.Services
     {
         Task<PagedResult<OverallTransactionDto>> GetTransactionsForUserAsync(int userId, PaginationParams paginationParams);
         Task<List<TransactionDto>> GetAllTransactionsAsync();
-        Task TransferAsync(TransferRequestDto dto);
+        Task<List<object>> TransferAsync(TransferRequestDto dto);
         Task<TransferRequestDto> ParseExcelAndBuildTransferDtoAsync(Stream stream, ClaimsPrincipal user);
 
     }

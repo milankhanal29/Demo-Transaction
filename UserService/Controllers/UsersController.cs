@@ -91,7 +91,7 @@ namespace UserService.Controllers
             }
         }
         [HttpPost("transfer")]
-        [Authorize(Roles = "Merchant,User")]
+        //[Authorize(Roles = "Merchant,User")]
         public async Task<IActionResult> Transfer([FromBody] TransferRequestDto dto)
         {
             try

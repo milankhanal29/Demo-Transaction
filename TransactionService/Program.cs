@@ -7,6 +7,7 @@ using TransactionService.Data;
 using TransactionService.Mapping;
 using TransactionService.Repository;
 using TransactionService.Services;
+using TransactionService.Services.Kafka;
 using TransactionService.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +18,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddAutoMapper(typeof(AutoMapperProfile));
+builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("Kafka"));
+builder.Services.AddSingleton<IKafkaProducerService, KafkaProducerService>();
+builder.Services.AddHostedService<KafkaConsumerService>();
 builder.Services.AddHttpClient("UserService", c =>
     c.BaseAddress = new Uri("https://localhost:7200"));
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
@@ -30,10 +34,8 @@ options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectio
 var jwtConfig = builder.Configuration.GetSection("JwtSettings");
 var key = Encoding.UTF8.GetBytes(jwtConfig["Key"]!);
 
-//builder.Services.AddHangfire(config =>
-//    config.UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection"))); 
 
-//builder.Services.AddHangfireServer();
+
 
 
 
@@ -59,15 +61,16 @@ builder.Services.AddAuthentication(options =>
 });
 
 var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
+//// Configure the HTTP request pipeline.
+//if (app.Environment.IsDevelopment())
+//{
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
 ExcelPackage.License.SetNonCommercialPersonal("milan khanal");
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseAuthentication();
 
 app.UseAuthorization();

@@ -13,5 +13,7 @@
             public string SenderAccount { get; set; } = string.Empty;
             public string ReceiverName { get; set; } = string.Empty;
             public string ReceiverAccount { get; set; } = string.Empty;
+            public string Status { get; set; } = string.Empty;
+            public string Remark { get; set; } = string.Empty;
         }
 }

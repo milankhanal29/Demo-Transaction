@@ -5,6 +5,7 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using TransactionService.Models;
 using TransactionService.Repository;
+using TransactionService.Services.Kafka;
 using TransactionService.Utils;
 using TransferUserDto = TransactionService.Models.TransferUserDto;
 
@@ -17,16 +18,19 @@ namespace TransactionService.Services
         private readonly IHttpClientFactory _httpFactory;
         private readonly IMapper _mapper;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IKafkaProducerService _kafkaProducer;
 
         public TransactionServiceImpl(ITransactionRepository repo,
                                   IHttpClientFactory httpFactory,
                                   IHttpContextAccessor httpContextAccessor,
+                                  IKafkaProducerService kafkaProducer,
                                   IMapper mapper)
         {
             _repo = repo;
             _httpFactory = httpFactory;
             _mapper = mapper;
             _httpContextAccessor = httpContextAccessor;
+            _kafkaProducer = kafkaProducer; 
 
         }
         
@@ -49,88 +53,158 @@ namespace TransactionService.Services
 
             return await _repo.GetTransactionsWithNamesAsync(userId, paginationParams);
         }
-        public async Task TransferAsync(TransferRequestDto dto) 
+        //public async Task<List<object>> TransferAsync(TransferRequestDto dto)
+        //{
+        //    var httpContext = _httpContextAccessor.HttpContext!;
+        //    var token = httpContext.Request.Headers["Authorization"].ToString();
+        //    if (string.IsNullOrEmpty(token))
+        //        throw new UnauthorizedAccessException("Missing Authorization token");
+
+        //    var userIdClaim = httpContext.User?.FindFirst("userId");
+        //    if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int tokenUserId))
+        //        throw new UnauthorizedAccessException("Invalid token");
+
+        //    var client = _httpFactory.CreateClient("UserService");
+        //    client.DefaultRequestHeaders.Authorization =
+        //        new AuthenticationHeaderValue("Bearer", token.Replace("Bearer ", ""));
+
+        //    var allAccountNumbers = dto.Transfers.Select(t => t.UserAccountNumber)
+        //                                         .Append(dto.MerchantAccountNumber)
+        //                                         .Distinct()
+        //                                         .ToList();
+
+        //    var idMapResp = await client.PostAsJsonAsync("/api/users/account-to-id", allAccountNumbers);
+        //    var accountMap = await idMapResp.Content.ReadFromJsonAsync<List<AccountNumberToIdDto>>() ?? new();
+
+        //    var merchantId = accountMap.FirstOrDefault(m => m.AccountNumber == dto.MerchantAccountNumber)?.UserId;
+        //    if (merchantId == null)
+        //        throw new Exception("Merchant account not found");
+
+        //    if (tokenUserId != merchantId.Value)
+        //        throw new UnauthorizedAccessException("Token mismatch with merchant");
+
+        //    var merchant = await client.GetFromJsonAsync<UserDto>($"/api/users/{merchantId}");
+        //    if (merchant is null)
+        //        throw new Exception("Merchant not found");
+
+        //    var transactionPerDay = _repo.GetTransactionNumberForUserAsSenderForToday(merchantId);
+        //    if ((transactionPerDay >= 3) && merchant.Role == "User")
+        //        throw new Exception("Limit Reached for today");
+
+        //    var result = new List<object>();
+        //    decimal currentBalance = merchant.Balance;
+
+        //    foreach (var transfer in dto.Transfers)
+        //    {
+        //        string status = "Failed";
+        //        string remark = "";
+        //        int? recipientId = accountMap.FirstOrDefault(x => x.AccountNumber == transfer.UserAccountNumber)?.UserId;
+
+        //        if (recipientId == null)
+        //        {
+        //            remark = "Invalid account number";
+        //        }
+        //        else if (transfer.Amount <= 0)
+        //        {
+        //            remark = "Invalid transfer amount";
+        //        }
+        //        else if (merchant.Role == "User" && transfer.Amount > 1000)
+        //        {
+        //            remark = "Amount exceeds per transaction limit";
+        //        }
+        //        else if (currentBalance < transfer.Amount)
+        //        {
+        //            remark = "Insufficient balance";
+        //        }
+        //        else
+        //        {
+        //            var userServicePayload = new
+        //            {
+        //                MerchantAccountNumber = dto.MerchantAccountNumber,
+        //                Transfers = new List<TransferUserDto> { transfer }
+        //            };
+
+        //            var userServiceResp = await client.PostAsJsonAsync("/api/users/transfer", userServicePayload);
+
+        //            if (!userServiceResp.IsSuccessStatusCode)
+        //            {
+        //                remark = "Balance update failed";
+        //            }
+        //            else
+        //            {
+        //                currentBalance -= transfer.Amount;
+        //                status = "Success";
+        //                remark = "Success";
+        //            }
+        //        }
+
+        //        var tx = new Transaction
+        //        {
+        //            FromUserId = merchantId.Value,
+        //            ToUserId = recipientId ?? 0,
+        //            Amount = transfer.Amount,
+        //            Timestamp = DateTime.Now,
+        //            Status = status,
+        //            Remark = remark
+        //        };
+
+        //        await _repo.AddAsync(tx);
+
+        //        await _kafkaProducer.PublishTransactionAsync(new
+        //        {
+        //            tx.Id,
+        //            tx.FromUserId,
+        //            tx.ToUserId,
+        //            tx.Amount,
+        //            tx.Status,
+        //            tx.Remark,
+        //            tx.Timestamp
+        //        });
+
+        //        result.Add(new
+        //        {
+        //            AccountNumber = transfer.UserAccountNumber,
+        //            Amount = transfer.Amount,
+        //            Status = status,
+        //            Remark = remark
+        //        });
+        //    }
+
+        //    await _repo.SaveChangesAsync();
+        //    return result;
+        //}
+
+
+        public async Task<List<object>> TransferAsync(TransferRequestDto dto)
         {
-            var httpContext = _httpContextAccessor.HttpContext!;
-            var token = httpContext.Request.Headers["Authorization"].ToString();                   
-            if (string.IsNullOrEmpty(token))
-                throw new UnauthorizedAccessException("Missing Authorization token");
+            var result = new List<object>();
 
-            var userIdClaim = httpContext.User?.FindFirst("userId");
-            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int tokenUserId))              
-                throw new UnauthorizedAccessException("Invalid token");
-
-            var client = _httpFactory.CreateClient("UserService");
-            client.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token.Replace("Bearer ", ""));
-
-            var allAccountNumbers = dto.Transfers.Select(t => t.UserAccountNumber)
-                                                 .Append(dto.MerchantAccountNumber)
-                                                 .Distinct()
-                                                 .ToList();
-
-            var idMapResp = await client.PostAsJsonAsync("/api/users/account-to-id", allAccountNumbers);
-            var accountMap = await idMapResp.Content.ReadFromJsonAsync<List<AccountNumberToIdDto>>();
-
-            if (accountMap == null || accountMap.Count != allAccountNumbers.Count)
-                throw new Exception("Some account numbers are invalid");
-
-            var merchantId = accountMap.FirstOrDefault(m => m.AccountNumber == dto.MerchantAccountNumber)?.UserId;
-            if (merchantId == null)
-                throw new Exception("Merchant account not found");
-
-            if (tokenUserId != merchantId.Value)
-                throw new UnauthorizedAccessException("Token mismatch with merchant");
-
-            var merchant = await client.GetFromJsonAsync<UserDto>($"/api/users/{merchantId}");
-            if (merchant is null)
-                throw new Exception("Merchant not found");
-
-            decimal totalAmount = dto.Transfers.Sum(t => t.Amount);
-
-            var transactionPerDay = _repo.GetTransactionNumberForUserAsSenderForToday(merchantId);
-            if ((transactionPerDay >= 3)&&(merchant.Role=="User"))
-                throw new Exception("Limit Reached for today");
-            if ((totalAmount >= 5) && (merchant.Role == "User"))
-                throw new Exception("Limit per transaction is 1000 rs");
-            if (merchant.Balance < totalAmount)
-                throw new Exception("Insufficient balance");
-
-            var recipientIds = dto.Transfers.Select(t => accountMap
-                                                 .First(a => a.AccountNumber == t.UserAccountNumber)
-                                                 .UserId)
-                                             .Distinct()
-                                             .ToList();
-
-            var resp = await client.PostAsJsonAsync("/api/users/bulk", recipientIds);
-            var recipients = await resp.Content.ReadFromJsonAsync<List<UserDto>>();
-            if (recipients == null || recipients.Count != recipientIds.Count)
-                throw new Exception("Some recipient users not found");
-
-            var userServiceTransferPayload = new
-            {
-                MerchantAccountNumber = dto.MerchantAccountNumber,
-                Transfers = dto.Transfers
-            };
-
-            var txResp = await client.PostAsJsonAsync("/api/users/transfer", userServiceTransferPayload);
-            if (!txResp.IsSuccessStatusCode)
-                throw new Exception("Balance Update Faild on UserService");
             foreach (var transfer in dto.Transfers)
             {
-                var userId = accountMap.First(x => x.AccountNumber == transfer.UserAccountNumber).UserId;
-                var transaction = new Transaction
+                var kafkaMessage = new
                 {
-                    FromUserId = merchantId.Value,
-                    ToUserId = userId,
+                    MerchantAccountNumber = dto.MerchantAccountNumber,
+                    UserAccountNumber = transfer.UserAccountNumber,
                     Amount = transfer.Amount,
-                    Timestamp = DateTime.Now
+                    Timestamp = DateTime.UtcNow
                 };
-                await _repo.AddAsync(transaction);
+
+                await _kafkaProducer.PublishTransactionAsync(kafkaMessage);
+
+                result.Add(new
+                {
+                    AccountNumber = transfer.UserAccountNumber,
+                    Amount = transfer.Amount,
+                    Status = "Queued",
+                    Remark = "Transaction queued for processing"
+                });
             }
 
-            await _repo.SaveChangesAsync();
+            return result;
         }
+
+
+
         public async Task<TransferRequestDto> ParseExcelAndBuildTransferDtoAsync(Stream stream, ClaimsPrincipal user)
         {
             using var package = new ExcelPackage(stream);
@@ -175,9 +249,8 @@ namespace TransactionService.Services
                     Amount = amount
                 });
             }
-
             return new TransferRequestDto
-            {
+            { 
                 MerchantAccountNumber = merchantAccountNumber,
                 Transfers = transfers
             };

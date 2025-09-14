@@ -54,8 +54,8 @@ namespace TransactionService.Controllers
         { 
             try
             {
-                await _service.TransferAsync(dto);
-                return Ok("Transfer completed");
+                var result = await _service.TransferAsync(dto);
+                return Ok(result);
             }
             catch (Exception ex)
             {

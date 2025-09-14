@@ -59,10 +59,12 @@ namespace TransactionService.Repository
                     ToUserId = reader.GetInt32(2),
                     Amount = reader.GetDecimal(3),
                     Timestamp = reader.GetDateTime(4),
-                    SenderName = reader.GetString(5),
-                    SenderAccount = reader.GetString(6),
-                    ReceiverName = reader.GetString(7),
-                    ReceiverAccount = reader.GetString(8)
+                    Status = reader.GetString(5),
+                    Remark = reader.GetString(6),
+                    SenderName = reader.GetString(7),
+                    SenderAccount = reader.GetString(8),
+                    ReceiverName = reader.GetString(9),
+                    ReceiverAccount = reader.GetString(10)
                 });
             }
 
